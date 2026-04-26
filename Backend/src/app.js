@@ -7,8 +7,9 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: true,
-    credentials: true
+    origin:
+        ["https://ai-powered-interview-prep-and-resum-two.vercel.app"],
+    credentials:true
 }))
 
 const authRouter = require('./routes/auth.routes');

@@ -3,7 +3,7 @@ import axios from "axios";
 
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000",
+    baseURL: import.meta.env.VITE_API_BASE_URL || "https://aipoweredinterviewprepandresumegen.onrender.com",
     withCredentials:true
 })
 export async function register({username,email,password}){
@@ -13,7 +13,8 @@ export async function register({username,email,password}){
         })
         return response.data
     }catch(err){
-        console.log(err)
+        console.error("Register error:", err)
+        throw err
     }
 }
 
@@ -24,7 +25,8 @@ export async function login({email,password}){
         })
         return response.data
     }catch(err){
-        console.log(err)
+        console.error("Login error:", err)
+        throw err
     }
     
 }

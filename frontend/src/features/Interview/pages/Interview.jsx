@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from 'react';
 import '../style/Interview.scss';
 import { useInterview } from '../hooks/useInterview.js';
-import { useParams } from 'react-router';
+import { useParams } from 'react-router-dom';
 
 
 const NAV_ITEMS = [

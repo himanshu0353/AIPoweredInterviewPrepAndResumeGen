@@ -11,10 +11,13 @@ export const useAuth =() => {
     const handleLogin = async({email, password}) => {
         setLoading(true)
         try{
-        const data = await login({email,password})
-        setUser(data.user)
+            const data = await login({email,password})
+            const user = data?.user ?? null
+            setUser(user)
+            return user
         }catch(err){
             console.log(err)
+            return null
         }finally{
             setLoading(false)
         }
@@ -23,12 +26,15 @@ export const useAuth =() => {
     const handleRegister = async({email,username,password}) => {
         setLoading(true)
         try{
-        const data = await register({email,username,password})
-        setUser(data.user)
+            const data = await register({email,username,password})
+            const user = data?.user ?? null
+            setUser(user)
+            return user
         }catch(err){
             console.log(err)
+            return null
         }finally{
-        setLoading(false)
+            setLoading(false)
         }
     }
 
