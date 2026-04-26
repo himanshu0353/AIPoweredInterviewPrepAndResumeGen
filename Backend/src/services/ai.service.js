@@ -466,7 +466,7 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
     
     let jsonContent;
     try {
-        // Strip markdown code block markers if present
+        // Strip markdown code block markers if present and this is by himanshu
         let jsonText = response.text.trim();
         if (jsonText.startsWith('```json')) {
             jsonText = jsonText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
