@@ -1,6 +1,6 @@
 import { getAllInterviewReports, generateInterviewReport, getInterviewReportById , generateResumePdf} from "../services/interview.api";
 import { useCallback, useContext } from 'react';
-import { InterviewContext } from "../interview.context";
+import { InterviewContext } from "../interviewContext";
 
 export const useInterview = () => {
 
