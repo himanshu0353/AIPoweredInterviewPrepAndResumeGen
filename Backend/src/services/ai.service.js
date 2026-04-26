@@ -157,7 +157,7 @@ IMPORTANT OUTPUT RULES:
                 }]
             }
         ],
-        config: {
+        generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: zodToJsonSchema(interviewReportSchema)
         }
@@ -166,221 +166,228 @@ IMPORTANT OUTPUT RULES:
     let result;
 
     try {
-        result = JSON.parse(response.text);
+        // Strip markdown code block markers if present
+        let jsonText = response.text.trim();
+        if (jsonText.startsWith('```json')) {
+            jsonText = jsonText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+        } else if (jsonText.startsWith('```')) {
+            jsonText = jsonText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+        }
+        result = JSON.parse(jsonText);
     } catch (err) {
         console.error("Invalid JSON from AI:", response.text);
         throw new Error("AI did not return valid JSON");
     }
 
     // 🔧 DEBUG - Log what AI actually returned
-    console.log("📋 RAW AI Response:");
+    console.log(" RAW AI Response:");
     console.log("   Full technicalQuestions array:", JSON.stringify(result.technicalQuestions?.slice(0, 2), null, 2));
     console.log("   Full behavioralQuestions array:", JSON.stringify(result.behavioralQuestions?.slice(0, 2), null, 2));
     console.log("   Total technical:", result.technicalQuestions?.length);
     console.log("   Total behavioral:", result.behavioralQuestions?.length);
 
-    // 🔧 FIX START - Enhanced data cleaning and restructuring
+    //  FIX START - Enhanced data cleaning and restructuring
 
-/**
- * Groups flat strings into proper question objects
- * Handles cases where AI returns ["question", "text1", "intention", "text2", "answer", "text3"]
- */
-const groupFlatQuestionsIntoObjects = (arr) => {
-    if (!Array.isArray(arr)) return [];
-    
-    const result = [];
-    let currentQuestion = {};
+    /**
+     * Groups flat strings into proper question objects
+     * Handles cases where AI returns ["question", "text1", "intention", "text2", "answer", "text3"]
+     */
+    const groupFlatQuestionsIntoObjects = (arr) => {
+        if (!Array.isArray(arr)) return [];
 
-    arr.forEach((item) => {
-        if (typeof item === "string") {
-            // Skip placeholder strings like "question", "intention", "answer"
-            if (["question", "intention", "answer", "Question", "Intention", "Answer"].includes(item.trim())) {
-                return;
-            }
-            // For other strings, use as question if empty
-            if (!currentQuestion.question) {
-                currentQuestion.question = item;
-            } else if (!currentQuestion.intention) {
-                currentQuestion.intention = item;
-            } else if (!currentQuestion.answer) {
-                currentQuestion.answer = item;
-                result.push(currentQuestion);
-                currentQuestion = {};
-            }
-        } else if (typeof item === "object" && item !== null) {
-            // If we have proper objects, use them
-            if (item.question || item.intention || item.answer) {
-                if (Object.keys(currentQuestion).length > 0) {
+        const result = [];
+        let currentQuestion = {};
+
+        arr.forEach((item) => {
+            if (typeof item === "string") {
+                // Skip placeholder strings like "question", "intention", "answer"
+                if (["question", "intention", "answer", "Question", "Intention", "Answer"].includes(item.trim())) {
+                    return;
+                }
+                // For other strings, use as question if empty
+                if (!currentQuestion.question) {
+                    currentQuestion.question = item;
+                } else if (!currentQuestion.intention) {
+                    currentQuestion.intention = item;
+                } else if (!currentQuestion.answer) {
+                    currentQuestion.answer = item;
                     result.push(currentQuestion);
+                    currentQuestion = {};
                 }
-                result.push(item);
-                currentQuestion = {};
+            } else if (typeof item === "object" && item !== null) {
+                // If we have proper objects, use them
+                if (item.question || item.intention || item.answer) {
+                    if (Object.keys(currentQuestion).length > 0) {
+                        result.push(currentQuestion);
+                    }
+                    result.push(item);
+                    currentQuestion = {};
+                }
             }
-        }
-    });
+        });
 
-    // Add last item if pending
-    if (Object.keys(currentQuestion).length > 0) {
-        result.push(currentQuestion);
-    }
-
-    return result;
-};
-
-/**
- * Validates and fixes question arrays to ensure each item has question, intention, and answer
- * IMPORTANT: Only adds structure if missing, does NOT modify existing valid data
- */
-const ensureQuestionStructure = (arr, type) => {
-    if (!Array.isArray(arr)) return [];
-
-    // First, try to group flat items into objects
-    let items = groupFlatQuestionsIntoObjects(arr);
-    
-    // If grouping didn't help, use original array
-    if (items.length === 0) {
-        items = arr;
-    }
-
-    return items.map((item, index) => {
-        // If item is already a proper object with all fields, return as is
-        if (typeof item === "object" && item !== null && 
-            item.question && item.intention && item.answer) {
-            return item;
+        // Add last item if pending
+        if (Object.keys(currentQuestion).length > 0) {
+            result.push(currentQuestion);
         }
 
-        // If item is an object but missing fields, fill them in
-        if (typeof item === "object" && item !== null) {
-            return {
-                question: item.question || `Question ${index + 1}`,
-                intention: item.intention || "Evaluation",
-                answer: item.answer || "Answer not available"
-            };
+        return result;
+    };
+
+    /**
+     * Validates and fixes question arrays to ensure each item has question, intention, and answer
+     * IMPORTANT: Only adds structure if missing, does NOT modify existing valid data
+     */
+    const ensureQuestionStructure = (arr, type) => {
+        if (!Array.isArray(arr)) return [];
+
+        // First, try to group flat items into objects
+        let items = groupFlatQuestionsIntoObjects(arr);
+
+        // If grouping didn't help, use original array
+        if (items.length === 0) {
+            items = arr;
         }
 
-        // Skip placeholder strings
-        if (typeof item === "string" && 
-            ["question", "intention", "answer", "Question", "Intention", "Answer"].includes(item.trim())) {
-            return null;
-        }
-
-        // If item is a JSON string representation of a question object, parse it
-        if (typeof item === "string") {
-            try {
-                const parsed = JSON.parse(item);
-                if (parsed && typeof parsed === 'object' && (parsed.question || parsed.intention || parsed.answer)) {
-                    return {
-                        question: parsed.question || `Question ${index + 1}`,
-                        intention: parsed.intention || "Evaluation",
-                        answer: parsed.answer || "Answer not available"
-                    };
-                }
-            } catch (parseError) {
-                // not JSON string, continue with fallback
+        return items.map((item, index) => {
+            // If item is already a proper object with all fields, return as is
+            if (typeof item === "object" && item !== null &&
+                item.question && item.intention && item.answer) {
+                return item;
             }
 
+            // If item is an object but missing fields, fill them in
+            if (typeof item === "object" && item !== null) {
+                return {
+                    question: item.question || `Question ${index + 1}`,
+                    intention: item.intention || "Evaluation",
+                    answer: item.answer || "Answer not available"
+                };
+            }
+
+            // Skip placeholder strings
+            if (typeof item === "string" &&
+                ["question", "intention", "answer", "Question", "Intention", "Answer"].includes(item.trim())) {
+                return null;
+            }
+
+            // If item is a JSON string representation of a question object, parse it
+            if (typeof item === "string") {
+                try {
+                    const parsed = JSON.parse(item);
+                    if (parsed && typeof parsed === 'object' && (parsed.question || parsed.intention || parsed.answer)) {
+                        return {
+                            question: parsed.question || `Question ${index + 1}`,
+                            intention: parsed.intention || "Evaluation",
+                            answer: parsed.answer || "Answer not available"
+                        };
+                    }
+                } catch (parseError) {
+                    // not JSON string, continue with fallback
+                }
+
+                return {
+                    question: item,
+                    intention: "Evaluation",
+                    answer: "Answer not available"
+                };
+            }
+
+            // Fallback for any other type
             return {
-                question: item,
+                question: `Question ${index + 1}`,
                 intention: "Evaluation",
                 answer: "Answer not available"
             };
-        }
+        }).filter(item => item !== null); // Remove nulls from placeholder strings
+    };
 
-        // Fallback for any other type
-        return {
-            question: `Question ${index + 1}`,
-            intention: "Evaluation",
-            answer: "Answer not available"
-        };
-    }).filter(item => item !== null); // Remove nulls from placeholder strings
-};
+    const ensureSkillGapStructure = (arr) => {
+        if (!Array.isArray(arr)) return [];
 
-const ensureSkillGapStructure = (arr) => {
-    if (!Array.isArray(arr)) return [];
+        return arr.map((item) => {
+            // If already a good object, return as is
+            if (typeof item === "object" && item !== null &&
+                item.skill && ['low', 'medium', 'high'].includes(item.severity)) {
+                return item;
+            }
 
-    return arr.map((item) => {
-        // If already a good object, return as is
-        if (typeof item === "object" && item !== null && 
-            item.skill && ['low', 'medium', 'high'].includes(item.severity)) {
-            return item;
-        }
+            // If object but missing fields, fill them
+            if (typeof item === "object" && item !== null) {
+                return {
+                    skill: item.skill || "Skill Gap",
+                    severity: ['low', 'medium', 'high'].includes(item.severity) ? item.severity : "medium"
+                };
+            }
 
-        // If object but missing fields, fill them
-        if (typeof item === "object" && item !== null) {
-            return {
-                skill: item.skill || "Skill Gap",
-                severity: ['low', 'medium', 'high'].includes(item.severity) ? item.severity : "medium"
-            };
-        }
+            // Skip placeholder strings
+            if (typeof item === "string" && ["skill", "severity", "Skill", "Severity"].includes(item.trim())) {
+                return null;
+            }
 
-        // Skip placeholder strings
-        if (typeof item === "string" && ["skill", "severity", "Skill", "Severity"].includes(item.trim())) {
-            return null;
-        }
+            // If string, convert to object
+            if (typeof item === "string" && item.trim().length > 0) {
+                return {
+                    skill: item,
+                    severity: "medium"
+                };
+            }
 
-        // If string, convert to object
-        if (typeof item === "string" && item.trim().length > 0) {
-            return {
-                skill: item,
-                severity: "medium"
-            };
-        }
+            return null; // Skip invalid items
+        }).filter(item => item !== null);
+    };
 
-        return null; // Skip invalid items
-    }).filter(item => item !== null);
-};
+    const ensurePreparationPlanStructure = (arr) => {
+        if (!Array.isArray(arr)) return [];
 
-const ensurePreparationPlanStructure = (arr) => {
-    if (!Array.isArray(arr)) return [];
+        return arr.map((item, index) => {
+            // If already a good object, return as is
+            if (typeof item === "object" && item !== null &&
+                typeof item.day === "number" && item.focus && Array.isArray(item.tasks)) {
+                return item;
+            }
 
-    return arr.map((item, index) => {
-        // If already a good object, return as is
-        if (typeof item === "object" && item !== null && 
-            typeof item.day === "number" && item.focus && Array.isArray(item.tasks)) {
-            return item;
-        }
+            // If object but missing fields, fill them
+            if (typeof item === "object" && item !== null) {
+                return {
+                    day: typeof item.day === "number" ? item.day : index + 1,
+                    focus: item.focus || "Preparation",
+                    tasks: Array.isArray(item.tasks) ? item.tasks : ["Study and practice"]
+                };
+            }
 
-        // If object but missing fields, fill them
-        if (typeof item === "object" && item !== null) {
-            return {
-                day: typeof item.day === "number" ? item.day : index + 1,
-                focus: item.focus || "Preparation",
-                tasks: Array.isArray(item.tasks) ? item.tasks : ["Study and practice"]
-            };
-        }
+            // Skip placeholder strings
+            if (typeof item === "string" && ["day", "focus", "tasks", "Day", "Focus", "Tasks"].includes(item.trim())) {
+                return null;
+            }
 
-        // Skip placeholder strings
-        if (typeof item === "string" && ["day", "focus", "tasks", "Day", "Focus", "Tasks"].includes(item.trim())) {
-            return null;
-        }
+            // If string, convert to object
+            if (typeof item === "string" && item.trim().length > 0) {
+                return {
+                    day: index + 1,
+                    focus: item,
+                    tasks: ["Study and practice"]
+                };
+            }
 
-        // If string, convert to object
-        if (typeof item === "string" && item.trim().length > 0) {
-            return {
-                day: index + 1,
-                focus: item,
-                tasks: ["Study and practice"]
-            };
-        }
+            return null; // Skip invalid items
+        }).filter(item => item !== null);
+    };
+    result.technicalQuestions = ensureQuestionStructure(result.technicalQuestions, "technical");
+    result.behavioralQuestions = ensureQuestionStructure(result.behavioralQuestions, "behavioral");
+    result.skillGap = ensureSkillGapStructure(result.skillGap);
+    result.preparationPlans = ensurePreparationPlanStructure(result.preparationPlans);
 
-        return null; // Skip invalid items
-    }).filter(item => item !== null);
-};
-result.technicalQuestions = ensureQuestionStructure(result.technicalQuestions, "technical");
-result.behavioralQuestions = ensureQuestionStructure(result.behavioralQuestions, "behavioral");
-result.skillGap = ensureSkillGapStructure(result.skillGap);
-result.preparationPlans = ensurePreparationPlanStructure(result.preparationPlans);
+    // 🔧 DEBUG - Log cleaned data
+    console.log("🧹 After Cleaning:");
+    console.log("   Technical questions after filter:", result.technicalQuestions.length);
+    console.log("   Sample cleaned technical:", JSON.stringify(result.technicalQuestions?.[0], null, 2));
+    console.log("   Behavioral questions after filter:", result.behavioralQuestions.length);
+    console.log("   Sample cleaned behavioral:", JSON.stringify(result.behavioralQuestions?.[0], null, 2));
 
-// 🔧 DEBUG - Log cleaned data
-console.log("🧹 After Cleaning:");
-console.log("   Technical questions after filter:", result.technicalQuestions.length);
-console.log("   Sample cleaned technical:", JSON.stringify(result.technicalQuestions?.[0], null, 2));
-console.log("   Behavioral questions after filter:", result.behavioralQuestions.length);
-console.log("   Sample cleaned behavioral:", JSON.stringify(result.behavioralQuestions?.[0], null, 2));
+    // 🔧 FIX END
 
-// 🔧 FIX END
 
-   
 
     //ZOD validation
     const validated = interviewReportSchema.safeParse(result);
@@ -400,36 +407,15 @@ console.log("   Sample cleaned behavioral:", JSON.stringify(result.behavioralQue
     console.log(`   - Match Score: ${result.matchScore}%`);
 
     // Trim to reasonable sizes (keep only meaningful questions)
-    // Keep max 10 each safely but ensure minimum 6
-    if (result.technicalQuestions.length > 10) {
-        console.warn(`⚠️ Trimming ${result.technicalQuestions.length} technical questions to 10`);
-        result.technicalQuestions = result.technicalQuestions.slice(0, 10);
-    }
-    if (result.behavioralQuestions.length > 10) {
-        console.warn(`⚠️ Trimming ${result.behavioralQuestions.length} behavioral questions to 10`);
-        result.behavioralQuestions = result.behavioralQuestions.slice(0, 10);
+    // Take first 5 technical and first 3 behavioral to avoid duplicates or malformed data
+    if (result.technicalQuestions.length > 5) {
+        console.warn(`⚠️ Trimming ${result.technicalQuestions.length} technical questions to 5`);
+        result.technicalQuestions = result.technicalQuestions.slice(0, 5);
     }
 
-    // Enforce minimum 6 questions each
-    if (result.technicalQuestions.length < 6) {
-        const needed = 6 - result.technicalQuestions.length;
-        for (let i = 0; i < needed; i++) {
-            result.technicalQuestions.push({
-                question: `Technical question ${result.technicalQuestions.length + 1} not generated`,
-                intention: "Evaluation",
-                answer: "Answer not available"
-            });
-        }
-    }
-    if (result.behavioralQuestions.length < 6) {
-        const needed = 6 - result.behavioralQuestions.length;
-        for (let i = 0; i < needed; i++) {
-            result.behavioralQuestions.push({
-                question: `Behavioral question ${result.behavioralQuestions.length + 1} not generated`,
-                intention: "Evaluation",
-                answer: "Answer not available"
-            });
-        }
+    if (result.behavioralQuestions.length > 3) {
+        console.warn(`⚠️ Trimming ${result.behavioralQuestions.length} behavioral questions to 3`);
+        result.behavioralQuestions = result.behavioralQuestions.slice(0, 3);
     }
 
     // ✅ RETURN CLEAN DATA
@@ -464,13 +450,34 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
 
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
+        contents: [
+            {
+                role: "user",
+                parts: [{
+                    text: prompt
+                }]
+            }
+        ],
+        generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: zodToJsonSchema(resumePdfSchema)
         }
     })
-    const jsonContent = JSON.parse(response.text)
+    
+    let jsonContent;
+    try {
+        // Strip markdown code block markers if present
+        let jsonText = response.text.trim();
+        if (jsonText.startsWith('```json')) {
+            jsonText = jsonText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+        } else if (jsonText.startsWith('```')) {
+            jsonText = jsonText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+        }
+        jsonContent = JSON.parse(jsonText);
+    } catch (err) {
+        console.error("Invalid JSON from AI:", response.text);
+        throw new Error("AI did not return valid JSON for PDF generation");
+    }
 
     const pdfBuffer = await generatedPdfFromHtml(jsonContent.html)
     return pdfBuffer
