@@ -1,8 +1,8 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const { connect } = require('mongoose');
-const app = require('./src/app');
-const connectToDB = require('./src/config/database');
-const invokeGenAi = require('./src/services/ai.service');
+const app = require('./Backen/app');
+const connectToDB = require('./Backen/config/database');
+const invokeGenAi = require('./Backen/services/ai.service');
 
 connectToDB();
 invokeGenAi;
