@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from 'react';
 import '../style/interview.scss';
 import { useInterview } from '../hooks/useInterview.js';
-import { useNavigate,useParams } from 'react-router';
+import { useParams } from 'react-router';
 
 
 const NAV_ITEMS = [
@@ -62,7 +62,6 @@ const Interview = () => {
     const technicalQuestions = Array.isArray(report?.technicalQuestions) ? report.technicalQuestions : []
     const behavioralQuestions = Array.isArray(report?.behavioralQuestions) ? report.behavioralQuestions : []
     const preparationPlans = Array.isArray(report?.preparationPlans) ? report.preparationPlans : []
-    const skillGap = Array.isArray(report?.skillGap) ? report.skillGap : []
 
     const scoreColor = typeof report?.matchScore === 'number' && report.matchScore >= 75 ? 'match-score__ring--high' : 
                        typeof report?.matchScore === 'number' && report.matchScore >= 50 ? 'match-score__ring--medium' : 

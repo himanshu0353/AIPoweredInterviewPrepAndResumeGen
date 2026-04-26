@@ -35,7 +35,7 @@ export const useAuth =() => {
     const handleLogout = async() => {
         setLoading(true)
         try{
-        const data = await logout()
+        await logout()
         setUser(null)
         }catch(err){
             console.log(err)
@@ -47,15 +47,15 @@ export const useAuth =() => {
     useEffect(() => {
         const getAndSetUser = async() => {
             try{
-                const data = await getMe()
-                setUser(data.user)
+                const userData = await getMe()
+                setUser(userData.user)
             }catch(err){
                 console.log(err)
             }finally{
                 setLoading(false)}
         }
         getAndSetUser()
-    } ,[])
+    } ,[setLoading, setUser])
 
     return {user, loading, handleRegister, handleLogin, handleLogout}
 }
