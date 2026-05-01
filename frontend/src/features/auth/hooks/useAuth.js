@@ -54,9 +54,15 @@ export const useAuth =() => {
         const getAndSetUser = async() => {
             try{
                 const userData = await getMe()
-                setUser(userData.user)
+                if(userData?.user){
+                    setUser(userData.user)
+                }else{
+                    console.warn("No user data returned from getMe()")
+                    setUser(null)
+                }
             }catch(err){
-                console.log(err)
+                console.warn("Auth check failed:", err.response?.status, err.message)
+                setUser(null)
             }finally{
                 setLoading(false)}
         }

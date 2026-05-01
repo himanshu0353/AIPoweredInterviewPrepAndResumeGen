@@ -13,14 +13,21 @@ export const generateInterviewReport = async({resume, selfDescription, jobDescri
     formData.append('selfDescription', selfDescription);
     formData.append('jobDescription', jobDescription);
 
-    const response =  await Api.post('/api/interview', formData,{
-        headers:{
-            "Content-Type": "multipart/form-data"
+    try{
+        const response =  await Api.post('/api/interview', formData,{
+            headers:{
+                "Content-Type": "multipart/form-data"
+            }
+        })
+        return response.data
+    }catch(err){
+        if(err.response?.status === 503){
+            console.error("Backend server unavailable (503) - the server may be restarting or down")
+        }else if(err.response?.status === 401){
+            console.error("Authentication failed (401) - token may be expired or invalid")
         }
-    })
-
-    return response.data
-    
+        throw err
+    }
 } 
 
 export const getInterviewReportById = async(interviewId) => {

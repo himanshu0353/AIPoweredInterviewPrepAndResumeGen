@@ -17,13 +17,20 @@ export const useInterview = () => {
         let response = null
         try{
             response = await generateInterviewReport({resume, selfDescription, jobDescription })
-            setReport(response.interviewReport)
+            if(response?.interviewReport){
+                setReport(response.interviewReport)
+                return response.interviewReport
+            }else{
+                console.error("No interview report in response:", response)
+                return null
+            }
         }catch(err){
-            console.log(err)
+            console.error("Error generating report:", err.response?.status, err.message)
+            alert(`Failed to generate report: ${err.response?.status === 503 ? 'Backend server is unavailable' : err.message}`)
+            return null
         }finally{
             setLoading(false)
         }
-        return response?.interviewReport
     }, [setLoading, setReport])
 
     const getReportById = useCallback(async (interviewId) => {
@@ -31,13 +38,19 @@ export const useInterview = () => {
         let response = null
         try{
             response = await getInterviewReportById(interviewId)
-            setReport(response.interviewReport)
+            if(response?.interviewReport){
+                setReport(response.interviewReport)
+                return response.interviewReport
+            }else{
+                console.error("No interview report in response:", response)
+                return null
+            }
         }catch(err){
-            console.log(err)
+            console.error("Error fetching report:", err.response?.status, err.message)
+            return null
         }finally{
             setLoading(false)
         }
-        return response?.interviewReport
     }, [setLoading, setReport])
 
     const getReports = useCallback(async () => {

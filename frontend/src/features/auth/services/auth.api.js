@@ -45,6 +45,13 @@ export async function getMe(){
         const response = await api.get("/api/auth/get-me")
         return response.data
     }catch(err){
-        console.log(err)
+        if(err.response?.status === 401){
+            console.warn("User not authenticated (401)")
+        }else if(err.response?.status === 503){
+            console.error("Backend server unavailable (503)")
+        }else{
+            console.error("Get user error:", err.message)
+        }
+        throw err
     }
 }
