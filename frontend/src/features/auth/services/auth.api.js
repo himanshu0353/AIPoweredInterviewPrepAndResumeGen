@@ -4,61 +4,55 @@ import axios from "axios";
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || "https://aipoweredinterviewprepandresumegen.onrender.com",
-    withCredentials:true
+    withCredentials: true
 })
-export async function register({username,email,password}){
-    try{
-        const response = await api.post("/api/auth/register",{
+export async function register({ username, email, password }) {
+    try {
+        const response = await api.post("/api/auth/register", {
             username, email, password
         })
         return response.data
-    }catch(err){
+    } catch (err) {
         console.error("Register error:", err)
         throw err
     }
 }
 
-export async function login({email,password}){
-    try{
-        const response = await api.post("/api/auth/login",{
+export async function login({ email, password }) {
+    try {
+        const response = await api.post("/api/auth/login", {
             email, password
         })
         return response.data
-    }catch(err){
+    } catch (err) {
         console.error("Login error:", err)
         throw err
     }
-    
+
 }
 
-export async function logout(){
-    try{
+export async function logout() {
+    try {
         const response = await api.get("/api/auth/logout")
         return response.data
-    }catch(err){
+    } catch (err) {
         console.log(err)
     }
 }
 
-export async function getMe(){
-    try{
+export async function getMe() {
+    try {
         const response = await api.get("/api/auth/get-me")
         return response.data
-    }catch(err){
-        if(err.response?.status === 401){
+    } catch (err) {
+        if (err.response?.status === 401) {
             console.warn("User not authenticated (401)")
-        }else if(err.response?.status === 503){
+        } else if (err.response?.status === 503) {
             console.error("Backend server unavailable (503)")
-        }else{
+        } else {
             console.error("Get user error:", err.message)
         }
         throw err
     }
 }
-            console.error("Backend server unavailable (503)")
-        }else{
-            console.error("Get user error:", err.message)
-        }
-        throw err
-    }
-}
+
