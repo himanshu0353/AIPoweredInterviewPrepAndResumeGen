@@ -37,9 +37,6 @@ app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'Server is running ✅' });
 });
 
-// Handle OPTIONS requests for CORS preflight
-app.options('/*', cors());
-
 app.use('/api/auth', authRouter);
 app.use('/api/interview', interviewRouter);
 
