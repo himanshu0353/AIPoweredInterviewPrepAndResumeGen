@@ -55,3 +55,10 @@ export async function getMe(){
         throw err
     }
 }
+            console.error("Backend server unavailable (503)")
+        }else{
+            console.error("Get user error:", err.message)
+        }
+        throw err
+    }
+}

@@ -13,16 +13,20 @@ app.use(cors({
             'http://localhost:5173', // Local development
             'http://localhost:3000',
             'https://aipoweredinterviewprepandresumegen.onrender.com',
+            'https://ai-powered-interview-prep-and-resum.vercel.app', // Your Vercel frontend
             'https://your-frontend-domain.com' // Add your actual frontend domain here
         ];
         
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
+            console.warn(`CORS blocked origin: ${origin}`);
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true // This allows cookies to be sent
+    credentials: true, // This allows cookies to be sent
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 const authRouter = require('./routes/auth.routes');
@@ -32,6 +36,9 @@ const interviewRouter = require('./routes/interview.routes');
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'Server is running ✅' });
 });
+
+// Handle OPTIONS requests for CORS preflight
+app.options('*', cors());
 
 app.use('/api/auth', authRouter);
 app.use('/api/interview', interviewRouter);
