@@ -38,7 +38,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Handle OPTIONS requests for CORS preflight
-app.options('*', cors());
+app.options('/*', cors());
 
 app.use('/api/auth', authRouter);
 app.use('/api/interview', interviewRouter);
